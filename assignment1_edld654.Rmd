@@ -11,26 +11,6 @@ output:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r eval=FALSE, include=FALSE}
-address <- "Bilbo Baggins, Bag End, Bagshot Row, Hobbiton"
-address_split <- strsplit(address, split = ", ")
-address_df <- as.data.frame(t(address_split[[1]]))
-colnames(address_df) <- c("name", "house", "street", "town")
-address_df
-```
-
-```{r eval=FALSE, include=FALSE}
-
-time <- data2$time
-time
-time <- strsplit(data2$time, split = " ")
-time_df <- as.data.frame(t(data2$time[[1]]))
-colnames(data2$time) <- c("wkday", "month", "day", "hour", "timezone", "year")
-View(data2)
-
-data$time
-```
-
 The purpose of this assignment is to get you working with the `recipes` package and preprocessing the variables in two different datasets. You will use the same datasets with processed variables to build models in the next assignments.
 
 There are alternative ways to submit your assignment depending on your preference.
@@ -74,11 +54,11 @@ library(rio)
 library(here) 
 library(recipes)
 library(stringr) #for working with data and time string
-
+library(scales)
 ```
 
 ```{r}
-data <- import(here("data/tweet_sub.csv"))
+data <- rio::import(here("data/tweet_sub.csv"))
 data2 <- data
 ```
 
@@ -264,6 +244,53 @@ data2 <- data2 |>
 
 ```
 
+### create ID variable
+```{r}
+data2 <- tibble::rowid_to_column(data2, "ID")
+```
+
+### last data preparation
+
+```{r}
+outcome <- c('sentiment')
+  
+  id      <- c('ID')
+  
+  categorical <- c('month') 
+
+  cyclic   <- c('hour',
+                 'date',
+                 'day')
+  
+  embed_number <- paste0('x',1:768)
+  
+# 3) Convert all nominal, ordinal, and binary variables to factors
+  # Leave the rest as is
+  
+  for(i in categorical){
+    
+    data2[,i] <- as.factor(data2[,i])
+    
+  }
+  
+  #Repeat with numeric just to be sure that they are all numbers
+  
+  for(i in numeric){
+    
+    data2[,i] <- as.numeric(data2[,i])
+    
+  }
+
+```
+
+### put the two data frames together
+
+```{r}
+data4 <- cbind(data2, read.embeddings)
+library(janitor)
+data4 <- clean_names(data4)
+```
+
 
 **Task 1.6** Prepare a recipe using the `recipe()` and `prep()` functions from the `recipes` package for final transformation of the variables in this dataset.
 
@@ -277,16 +304,35 @@ Your recipe should have the following specifications:
 
 -   each cyclic variable (`day`, `date`, and `hour`) is recoded into two new variables of sin and cos terms (`?step_harmonic()`).
 
-```{r}
-
-```
-
-
 -   `month` variable is recoded into dummy variables using one-hot encoding (`?step_dummy`)
 
 -   all numerical embeddings (Dim1 - Dim768) are standardized (`?step_normalize`)
 
 Print the blueprint.
+
+#### NORMALIZE NUMBERS BUT HOW TO ATTACH THEM?
+they occur in the same order so you can bind them
+break ended at 2:20
+
+
+```{r}
+blueprint <- recipe(x  = data2,
+                    vars  = c(categorical,numeric,outcome,id),
+                    roles = c(rep('predictor',4),'outcome','ID')) |>
+
+  step_dummy(all_of(categorical),one_hot=TRUE) |>
+  
+  step_normalize(select(all_of(embed_number))) |>
+  
+  step_harmonic((days), cycle_size = 7) |>
+  step_harmonic((hours), cycle_size = 24) |>
+  step_harmonic((date), cycle_size = 31)
+  
+  
+
+blueprint
+```
+
 
 **Task 1.7** Finally, apply this recipe to the whole dataset and obtain the final version of the dataset with transformed variables. The final dataset should have 1500 rows and 778 columns as the following:
 
@@ -295,6 +341,12 @@ Print the blueprint.
 -   two columns for the sin and cos terms representing the variable `day`,
 -   two columns for the sin and cos terms representing the variable `date`,\
 -   two columns for the sin and cos terms representing the variable `hour`.
+
+```{r}
+prepare <- prep(blueprint, 
+                training = data4)
+prepare
+```
 
 **Task 1.8** Export the final dataset (1500 x 778) as a .csv file.
 

@@ -1,0 +1,28 @@
+---
+title: "week5"
+author: "Tian Walker"
+date: "2024-10-28"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+install.packages("glmnet")
+library(glmnet)
+```
+
+you have to create two matrixes for glmnet
+you do not have to add the columns of 1
+
+
+gaussian - we assume the residuals are normally distributed
+binomial - for logistic regression
+
+
+plot(ridge) will print the outcome of the cross validation
+
+
+
