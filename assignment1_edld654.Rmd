@@ -1,0 +1,661 @@
+---
+title: "Assignment1"
+author: "Tian Walker"
+date: "2024-10-25"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+The purpose of this assignment is to get you working with the `recipes` package and preprocessing the variables in two different datasets. You will use the same datasets with processed variables to build models in the next assignments.
+
+There are alternative ways to submit your assignment depending on your preference.
+
+1.  You can Copy/Edit this notebook and complete it with your responses. Then, you can save and run the completed Kaggle notebook and submit the link through Canvas. If you keep your notebook Private, do not forget to share it with 'UOCOEEDS' so I can access it.
+
+2.  You copy/paste the questions and download the datasets from the notebook to your computer. Then, complete the assignment as an R markdown document. Then, you can knit the R Markdown document to a PDF and submit both the .Rmd and PDF files by uploading them on Canvas.
+
+3.  You knit the R Markdown document to an HTML document and host it on your website/blog or any publicly available platform. Then, you can submit the .Rmd file by uploading it on Canvas and putting the link for the HTML document as a comment.
+
+4.  If you have a GitHub repo and store all your work for this class in a GitHub repo, you can create a folder for this assignment in that repo and put the.Rmd file and PDF document under a specific folder. Then, you can submit the link for the GitHub repo on Canvas.
+
+To receive full credit, you must complete the following tasks. Please make sure that all the R code you wrote for completing these tasks and any associated output are explicitly printed in your submitted document. If the task asks you to submit the data files you created, please upload these datasets along with your submission.
+
+If you have any questions, please do not hesitate to reach out to me.
+
+## Task 1: Preprocessing Text Data
+
+### Description
+
+For this part of the assignment, you will work with a Twitter dataset which is randomly sampled from a larger dataset on the Kaggle platform [(see this link for the original data)](https://www.kaggle.com/matyasmacudzinski/sentiment-analysis-using-bert/data). In this subset data, there are 1,500 tweets and three variables. A description of the three variables in the dataset follows:
+
+-   **sentiment**: a character string variable with two values (Positive and Negative) for the outcome variable to predict.
+-   **time**: a character string variable indicating time of a tweet (e.g.,Thu Jun 18 07:35:01 PDT 2009)
+-   **tweet**: a character string variable that provides the full text of a tweet.
+
+This subset data is available as an input data in this R notebook (**'../input/tweets/tweet_sub.csv'**).
+
+Our ultimate goal is to build a model to predict whether or not a tweet has a positive sentiment by using the information from time of the tweet and text of the tweet. We will do this in the following assignments. For this assignment, we will only engineer features to use them later for building our models and prepare the dataset for model development.
+
+Please complete the following tasks. Provide the R code you wrote and any associated output for each task.
+
+### Tasks
+
+**Task 1.1** Import the tweet data into the R environment. You can give any name to this data object. Print the structure of this data object using the `str` function.
+
+**Task 1.1** Import the tweet data into the R environment. You can give any name to this data object. Print the structure of this data object using the `str` function.
+
+```{r}
+library(rio)
+library(here) 
+library(recipes)
+library(stringr) #for working with data and time string
+library(scales)
+```
+
+```{r}
+data <- rio::import(here("assignment_1/data/tweet_sub.csv"))
+data2 <- data
+```
+
+```{r}
+str(data)
+```
+
+**Task 1.2** The `time` variable in this dataset is a character string such as *Thu Jun 18 07:35:01 PDT 2009*. Create four new columns in the dataset using this time variable to show the day, date, month, and hour of a tweet. The table below provides some examples of how these four new columns would look like given time as a character string.
+
++------------------------------+-----+-------+------+------+
+| time                         | day | month | date | hour |
++:=============================+====:+:======+=====:+=====:+
+| Thu Jun 18 07:35:01 PDT 2009 | 4   | Jun   | 18   | 7    |
++------------------------------+-----+-------+------+------+
+| Sun May 10 00:31:52 PDT 2009 | 7   | May   | 10   | 0    |
++------------------------------+-----+-------+------+------+
+| Sun May 31 09:15:19 PDT 2009 | 7   | May   | 31   | 9    |
++------------------------------+-----+-------+------+------+
+| Fri May 22 07:25:52 PDT 2009 | 5   | May   | 22   | 7    |
++------------------------------+-----+-------+------+------+
+| Sun May 31 02:09:52 PDT 2009 | 7   | May   | 31   | 2    |
++------------------------------+-----+-------+------+------+
+| Sun Jun 07 09:13:08 PDT 2009 | 7   | Jun   | 7    | 9    |
++------------------------------+-----+-------+------+------+
+
+Make sure that `day` column is a numeric variable from 1 to 7 (Monday = 1, Sunday =7), `date` column is a numeric variable from 1 to 31, and `hour` column is a numeric variable from 0 to 23, and `month` column is a factor variable.
+
+Calculate and print the frequencies for each new column (day, month, date, and hour) you created from the original `time`.
+
+# DATES
+
+```{r}
+data2 <- data
+data2$wkday <- gsub( " .*$", "", data2$time )
+
+data2$month <- word(data2$time, 2)
+data2$month <- as.factor(data2$month)
+
+data2$date  <- word(data2$time, 3) #daynum 
+data2$date <- as.numeric(data2$date)
+
+data2$hms  <- word(data2$time, 4)
+data2$hour <- substr(data2$hms, start = 1, stop = 2)
+data2$hour <- as.numeric(data2$hour)
+#data2$hms <-lubridate::hms(data2$hms) this does a cool thing where it pulls the numbers and labels them as H, S, or M
+#data2$hms <- word(data2$hms, 1) this pulls mostly just the hour, but in cases where hour is 0 the above function turns it into a blank space and so this ends up pulling the minutes number for the variables that have 0 hours.
+
+#data2$hms <- gsub("[^[:digit:]]", "", data2$hms) This separates the letter part of the variable
+
+
+```
+
+```{r}
+data2 <- data2 %>% 
+  mutate(day = case_when(
+                
+    
+              wkday == "Mon" ~ 1,
+              wkday == "Tue" ~ 2,
+              wkday == "Wed" ~ 3, 
+              wkday == "Thu" ~ 4, 
+              wkday == "Fri" ~ 5, 
+              wkday == "Sat" ~ 6,
+              wkday == "Sun" ~ 7
+              
+              ))
+
+data2$day <- as.numeric(data2$day)
+```
+
+```{r}
+perc_day <- table(data2$day)
+
+mon <- perc_day[1]
+tues <- perc_day[2]
+weds <- perc_day[3]
+thurs <- perc_day[4]
+fri <- perc_day[5]
+sat <- perc_day[6]
+sun <- perc_day[7]
+
+total <- mon + tues + weds + thurs + fri + sat + sun 
+```
+
+Frequency of posts on days of the week: 
+```{r}
+p_mon <- mon/total
+p_mon <- label_percent()(p_mon)
+
+p_tues <- tues/total
+p_tues <- label_percent()(p_tues)
+
+p_weds <- weds/total
+p_weds <- label_percent()(p_weds)
+
+p_thurs <- thurs/total
+p_thurs <- label_percent()(p_thurs)
+
+p_fri <- fri/total
+p_fri <- label_percent()(p_fri)
+
+p_sat <- sat/total
+p_sat <- label_percent()(p_sat)
+
+p_sun <- sun/total
+p_sun <- label_percent()(p_sun)
+
+
+percents <- c(p_mon, p_tues, p_weds, p_thurs, p_fri, p_sat, p_sun)
+names(percents) <- c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
+
+percents
+```
+```{r}
+library(psych)
+
+describe(data2$date)
+perc_data <- table(data2$date)
+```
+
+```{r}
+data3 <- data2
+#changing variables from numberes to characters so that the frequencies can be calculated based on each day as a separate entity. 
+
+data3$date <- as.character(data3$date)
+data3$hour <- as.character(data3$hour)
+
+library(gtsummary)
+
+data3 |>
+select(day, month, date, hour ) |>
+  tbl_summary()
+  
+```
+
+
+**Task 1.3** Recode the outcome variable (`sentiment`) into a binary variable such that Positive is equal to 1 and Negative is equal to 0. Calculate and print the frequencies for tweets with positive and negative sentiments.
+
+```{r}
+data2 <- data2 |>
+  mutate(sentiment = ifelse(sentiment == "Positive", 1, 0)) 
+```
+
+**Task 1.4** Load the `reticulate` package and Python library `sentence_transformers`. Then, generate tweet embeddings for each tweet in this dataset using the`allenai/longformer-base-4096` model. Tweet embeddings for each tweet should be a vector of numbers with length 768. Append these embeddings to the original data.
+
+```{r}
+library(reticulate)
+st <- import('sentence_transformers')
+```
+
+```{r}
+model.name <- 'allenai/longformer-base-4096'
+
+longformer      <- st$models$Transformer(model.name)
+pooling_model   <- st$models$Pooling(longformer$get_word_embedding_dimension())
+LFmodel         <- st$SentenceTransformer(modules = list(longformer,pooling_model))
+```
+
+```{r eval=FALSE, include=FALSE}
+# Warning that came up: 
+# /Users/tianwalker/Library/r-miniconda-arm64/envs/r-reticulate/lib/python3.10/site-packages/transformers/tokenization_utils_base.py:1617: FutureWarning: `clean_up_tokenization_spaces` was not set. It will be set to `True` by default. This behavior will be deprecated in transformers v4.45, and will be then set to `False` by default. For more details check this issue: https://github.com/huggingface/transformers/issues/31884
+#   warnings.warn(
+```
+
+```{r}
+LFmodel$get_max_seq_length()
+
+LFmodel$get_sentence_embedding_dimension()
+```
+
+```{r}
+
+read.embeddings <- LFmodel$encode(data2$tweet,
+                                  show_progress_bar = TRUE)
+
+```
+
+**Task 1.5** Remove the two columns `time` and `tweet` from the dataset as you do not need them anymore.
+
+```{r}
+data2 <- data2 |>
+  select(-time, -tweet, -wkday, -hms)
+
+```
+
+### create ID variable
+```{r}
+data2 <- tibble::rowid_to_column(data2, "ID")
+```
+
+### last data preparation
+
+```{r}
+outcome <- c('sentiment')
+  
+  id      <- c('ID')
+  
+  categorical <- c('month') 
+
+  cyclic   <- c(
+                 'date',
+                 'hour',
+                 'day')
+  
+  embed_number <- paste0('x', 1:768)
+  
+# 3) Convert all nominal, ordinal, and binary variables to factors
+  # Leave the rest as is
+  
+  for(i in categorical){
+    
+    data2[,i] <- as.factor(data2[,i])
+    
+  }
+  
+  #Repeat with numeric just to be sure that they are all numbers
+  
+  # for(i in numeric){
+  #   
+  #   data2[,i] <- as.numeric(data2[,i])
+  #   
+  # }
+
+  typeof(data2$date)
+  typeof(data2$hour)
+  typeof(data2$day)
+
+```
+
+### put the two data frames together
+
+```{r}
+data4 <- cbind(data2, read.embeddings)
+library(janitor)
+data4 <- clean_names(data4)
+
+data4 <- data4 |>
+  rename( "ID" = "id")
+
+```
+
+
+**Task 1.6** Prepare a recipe using the `recipe()` and `prep()` functions from the `recipes` package for final transformation of the variables in this dataset.
+
+First, make sure you have the most recent developer version of the `recipes` package from Github. If not, install it from Github.
+
+```{r}
+#devtools::install_github("tidymodels/recipes")
+```
+
+Your recipe should have the following specifications:
+
+-   each cyclic variable (`day`, `date`, and `hour`) is recoded into two new variables of sin and cos terms (`?step_harmonic()`).
+
+-   `month` variable is recoded into dummy variables using one-hot encoding (`?step_dummy`)
+
+-   all numerical embeddings (Dim1 - Dim768) are standardized (`?step_normalize`)
+
+Print the blueprint.
+
+```{r}
+# blueprint <- recipe(x  = data4,
+#                     vars  = c(categorical,cyclic,embed_number ,outcome,id),
+  #                   roles = c(rep('predictor',772),'ID', 'outcome')) |>
+  # 
+  # step_dummy(all_of(categorical),one_hot=TRUE) |>
+  # 
+  # step_normalize(x1:x768) |>
+  # 
+  # step_harmonic((day), cycle_size = 7) |>
+  # step_harmonic((hours), cycle_size = 24) |>
+  # step_harmonic((date), cycle_size = 31)
+  
+  
+blueprint <- recipe(x  = data4,
+                    vars  = c(id, outcome, categorical,cyclic,embed_number ),
+                    roles = c('ID', 'outcome', rep('predictor',772))) |>
+
+  step_dummy(all_of(categorical),one_hot=TRUE) |>
+  
+  step_normalize(x1:x768) 
+  
+   
+ # step_harmonic((date), cycle_size = 31) |>
+ # step_harmonic((hour), cycle_size = 23) |>
+# step_harmonic((day), cycle_size = 7)
+  
+
+blueprint
+```
+
+
+**Task 1.7** Finally, apply this recipe to the whole dataset and obtain the final version of the dataset with transformed variables. The final dataset should have 1500 rows and 778 columns as the following:
+
+-   768 columns for tweet embeddings,
+-   three columns for dummy variables representing the variable `month`,
+-   two columns for the sin and cos terms representing the variable `day`,
+-   two columns for the sin and cos terms representing the variable `date`,\
+-   two columns for the sin and cos terms representing the variable `hour`.
+
+```{r}
+prepare <- prep(blueprint, 
+                training = data4)
+prepare
+```
+
+```{r}
+baked_data <- bake(prepare, new_data = data4)
+
+baked_data
+```
+
+**Task 1.8** Export the final dataset (1500 x 778) as a .csv file.
+
+```{r}
+write.csv(baked_data, "~/Documents/Everything/PhD_harddrive/EDLD_654/final_dataset")
+```
+
+
+## Task 2: Preprocessing Continuous and Categorical Variables
+
+### Description
+
+For the second part of the assignment, we are going to use a student performance dataset. The data attributes include student grades, demographic, social and school related features, and it was collected by using school reports and questionnaires. The dataset has 649 observations and 31 variables. This data is available as an input data in this R notebook (**'../input/student-performance/student.csv'**).
+
+Below is a table of data dictionary for the variables in this dataset.
+
+<style type="text/css">
+ .tg  {border-collapse:collapse;border-spacing:0;}
+ .tg td{border-color:black;border-style:solid;border-width:1px;font-family:Arial, sans-serif;font-size:14px;
+   overflow:hidden;padding:10px 5px;word-break:normal;}
+ .tg th{border-color:black;border-style:solid;border-width:1px;font-family:Arial, sans-serif;font-size:14px;
+   font-weight:normal;overflow:hidden;padding:10px 5px;word-break:normal;}
+ .tg .tg-0pky{border-color:inherit;text-align:left;vertical-align:top}
+ .tg .tg-0lax{text-align:left;vertical-align:top}
+ </style>
+
++----------+------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+| Variable | Name       | Description                                                                                                                                   |
++==========+============+===============================================================================================================================================+
+| 1        | school     | student's school (binary: 'GP' - Gabriel Pereira or 'MS' - Mousinho da Silveira)                                                              |
++----------+------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+| 2        | sex        | student's sex assigned at birth (binary: 'F' - female or 'M' - male)                                                                          |
++----------+------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+| 3        | age        | student's age (numeric: from 15 to 22)                                                                                                        |
++----------+------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+| 4        | address    | student's home address type (binary: 'U' - urban or 'R' - rural)                                                                              |
++----------+------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+| 5        | famsize    | family size (binary: 'LE3' - less or equal to 3 or 'GT3' - greater than 3)                                                                    |
++----------+------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+| 6        | Pstatus    | parent's cohabitation status (binary: 'T' - living together or 'A' - apart)                                                                   |
++----------+------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+| 7        | Medu       | mother's education (numeric: 0 - none, 1 - primary education (4th grade), 2 - 5th to 9th grade, 3 - secondary education, 4 - higher education |
++----------+------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+| 8        | Fedu       | father's education (numeric: 0 - none, 1 - primary education (4th grade), 2 - 5th to 9th grade, 3 - secondary education, 4 - higher education |
++----------+------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+| 9        | Mjob       | mother's job (nominal: 'teacher', 'health' care related, civil 'services' (e.g. administrative or police), 'at_home' or 'other')              |
++----------+------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+| 10       | Fjob       | father's job (nominal: 'teacher', 'health' care related, civil 'services' (e.g. administrative or police), 'at_home' or 'other')              |
++----------+------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+| 11       | reason     | reason to choose this school (nominal: close to 'home', school 'reputation', 'course' preference or 'other')                                  |
++----------+------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+| 12       | guardian   | student's guardian (nominal: 'mother', 'father' or 'other')                                                                                   |
++----------+------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+| 13       | traveltime | home to school travel time (numeric: 1 - \<15 min, 2 - 15 to 30 min, 3 - 30min to 1 hour, or 4  \>1hour)                                      |
++----------+------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+| 14       | studytime  | weekly study time (numeric: 1 -  \<2 hours, 2 - 2 to 5 hours, 3 - 5 to 10 hours, or 4 - \>10 hours)                                           |
++----------+------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+| 15       | failures   | number of past class failures (numeric: n if 1\<=n\<3, else 4)                                                                                |
++----------+------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+| 16       | schoolsup  | extra educational support (binary: yes or no)                                                                                                 |
++----------+------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+| 17       | famsup     | family educational support (binary: yes or no)                                                                                                |
++----------+------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+| 18       | paid       | extra paid classes within the course subject (Math or Portuguese) (binary: yes or no)                                                         |
++----------+------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+| 19       | activities | extra-curricular activities (binary: yes or no)                                                                                               |
++----------+------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+| 20       | nursery    | attended nursery school (binary: yes or no)                                                                                                   |
++----------+------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+| 21       | higher     | wants to take higher education (binary: yes or no)                                                                                            |
++----------+------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+| 22       | internet   | Internet access at home (binary: yes or no)                                                                                                   |
++----------+------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+| 23       | romantic   | with a romantic relationship (binary: yes or no)                                                                                              |
++----------+------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+| 24       | famrel     | quality of family relationships (numeric: from 1 - very bad to 5 - excellent)                                                                 |
++----------+------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+| 25       | freetime   | free time after school (numeric: from 1 - very low to 5 - very high)                                                                          |
++----------+------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+| 26       | goout      | going out with friends (numeric: from 1 - very low to 5 - very high)                                                                          |
++----------+------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+| 27       | Dalc       | workday alcohol consumption (numeric: from 1 - very low to 5 - very high)                                                                     |
++----------+------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+| 28       | Walc       | weekend alcohol consumption (numeric: from 1 - very low to 5 - very high)                                                                     |
++----------+------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+| 29       | health     | current health status (numeric: from 1 - very bad to 5 - very good)                                                                           |
++----------+------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+| 30       | absences   | number of school absences (numeric: from 0 to 93)                                                                                             |
++----------+------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+| 31       | G3         | final grade (numeric: from 0 to 20, output target)                                                                                            |
++----------+------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+
+### Tasks
+
+**Task 2.1** Import the student performance data into the R environment. You can give any name to this data object. Print the structure of this data object using the `str` function.
+
+```{r}
+dat <- rio::import(here("assignment_1/data/student2.csv"))
+
+str(dat)
+```
+
+
+**Task 2.2** Using the `ff_glimpse()` function from the `finalfit` package, provide a snapshot of missingness in this dataset. This function also returns the number of levels for categorical variables. If there is any variable with large amount of missingness (e.g. more than 75%), remove this variable from the dataset.
+
+```{r}
+library(finalfit)
+
+ff_glimpse(dat)
+```
+
+
+**Note**: Each variable except *student_id* and *G3* has at least one missing value in this dataset.
+
+**Task 2.3** Most of the variables in this dataset are categorical, and particularly a binary variable with a Yes and No response. Check the frequency of unique values for all categorical variables. If there is any inconsistency (e.g., Yes is coded as both 'y' and 'Y') for any of these variables in terms of how values are coded, fix them. Also, check the distribution of numeric variables and make sure there is no anomaly.
+
+```{r}
+table(dat$school)
+table(dat$sex)
+describe(dat$age)
+table(dat$address)
+table(dat$famsize)
+table(dat$Pstatus)
+table(dat$Medu)
+table(dat$Fedu)
+```
+
+```{r}
+table(dat$Mjob)
+table(dat$Fjob)
+table(dat$reason)
+table(dat$guardian)
+table(dat$traveltime)
+table(dat$studytime)
+table(dat$failures) #there are no 4 values, seems like this may be incorrect
+table(dat$schoolsup)
+table(dat$famsup)
+table(dat$paid)
+table(dat$activities)
+table(dat$nursery)
+table(dat$higher)
+table(dat$internet)
+table(dat$romantic)
+
+table(dat$famrel)
+table(dat$freetime)
+table(dat$goout)
+table(dat$Dalc)
+table(dat$Walc)
+table(dat$health)
+table(dat$absences)
+describe(dat$absences)
+table(dat$G3)
+describe(dat$G3)
+```
+
+Below is a list of variables that should be treated as categorical (with a nominal scale):
+
+-   school
+-   sex
+-   address
+-   famsize
+-   Pstatus
+-   Mjob
+-   Fjob
+-   reason
+-   guardian
+-   schoolsup
+-   famsup
+-   paid
+-   activities
+-   nursery
+-   higher
+-   internet
+-   romantic
+
+Below is a list of variables that should be treated as numeric (with an ordinal or continuous scale):
+
+-   Medu
+-   Fedu
+-   traveltime
+-   studytime
+-   failures
+-   famrel
+-   freetime
+-   goout
+-   Dalc
+-   Walc
+-   health
+-   age
+-   absences
+
+The purpose is to check the observed data and make sure the observed data is aligned with the data dictionary and there are no unexpected or unusual values that are not consistent with what expect from data. If there is such data points, they have to be fixed or issued should be resolved before moving forward.
+
+**Task 2.4** Prepare a recipe using the `recipe()` and `prep()` functions from the `recipes` package for final transformation of the variables in this dataset.
+
+Suppose that we categorize the variables in this datasets as the following:
+
+-   `student_id` is the ID variable
+-   `G3` is the outcome variable
+-   `Medu`,`Fedu`,`traveltime`,`studytime`,`failures`,`famrel`,`freetime`,`goout`,`Dalc`,`Walc`,`health`,`age`,`absences` are numeric predictors
+-   `school`,`sex`,`address`,`famsize`,`Pstatus`,`Mjob`,`Fjob`,`reason`,`guardian`,`schoolsup`,`famsup`, `paid`,`activities`,`nursery`,`higher`,`internet`,`romantic` are all categorical predictors.
+
+```{r}
+id <- c('student_id')
+outcome <- c('G3')
+numeric <- c('Medu','Fedu','traveltime','studytime','failures','famrel','freetime','goout','Dalc','Walc','health','age','absences')
+categorical <- c('school','sex','address','famsize','Pstatus','Mjob','Fjob','reason','guardian','schoolsup','famsup', 'paid','activities','nursery','higher','internet','romantic')
+
+
+
+```
+
+
+Your recipe should have the following specifications in the order below:
+
+```{r}
+blueprint <- recipe(x  = dat,
+                    vars  = c(id, outcome, categorical, numeric ),
+                    roles = c('id', 'outcome', rep('predictor',30))) |>
+
+step_indicate_na(all_of(categorical),all_of(numeric) |>
+# step_zv(all_numeric()) |>
+# step_impute_mean(all_of(numeric)) |>
+# step_impute_mode(all_of(categorical)) |>
+# step_poly(all_of(numeric),degree=3) |>
+#   step_normalize(paste0(numeric,'_poly_1'),
+#                  paste0(numeric,'_poly_2')) |>
+  
+  # One-hot encoding for all categorical variables
+  
+  step_dummy(all_of(categorical),one_hot=TRUE))
+
+```
+
+
+-   create an indicator variable for missingness for all predictors,
+-   remove the numeric predictors with zero variance,
+-   replace missing values with mean for numeric predictors,
+-   replace missing values with mode for categorical predictors,
+-   expand numeric predictors using using polynomial basis functions with three degrees of freedom and standardize,
+-   recode categorical predictors into dummy variables using one-hot encoding.
+
+Print the blueprint.
+
+```{r}
+blueprint
+```
+
+
+**Task 2.5** Finally, apply this recipe to the whole dataset and obtain the final version of the dataset with transformed variables. The final dataset should have 649 rows and 114 columns as the following:
+
+
+```{r eval=FALSE, include=FALSE}
+prepare <- prep(blueprint, 
+                training = dat)
+prepare
+```
+
+```{r eval=FALSE, include=FALSE}
+baked_data <- bake(prepare, new_data = data4)
+
+baked_data
+```
+
+
+-   one column representing the ID variable, `id`,
+-   one column representing the outcome variable, `score`,
+-   30 columns representing missing indicator variables,
+-   three columns for polynomial terms for each of the numeric variables,
+-   two columns for dummy variables representing `school`,
+-   two columns for dummy variables representing `sex`,
+-   two columns for dummy variables representing `address`,
+-   two columns for dummy variables representing `famsize`,
+-   two columns for dummy variables representing `Pstatus`,
+-   five columns for dummy variables representing `Mjob`,
+-   five columns for dummy variables representing `Fjob`,
+-   four columns for dummy variables representing `reason`,
+-   three columns for dummy variables representing `guardian`,
+-   two columns for dummy variables representing `schoolsup`,
+-   two columns for dummy variables representing `famsup`,
+-   two columns for dummy variables representing `paid`,
+-   two columns for dummy variables representing `activities`,
+-   two columns for dummy variables representing `nursery`,
+-   two columns for dummy variables representing `higher`,
+-   two columns for dummy variables representing `internet`,
+-   two columns for dummy variables representing `romantic`
+
+**Task 2.7** Export the final dataset (649 x 114) as a .csv file.
