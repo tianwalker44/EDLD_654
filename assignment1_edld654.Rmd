@@ -49,12 +49,13 @@ Please complete the following tasks. Provide the R code you wrote and any associ
 
 **Task 1.1** Import the tweet data into the R environment. You can give any name to this data object. Print the structure of this data object using the `str` function.
 
-```{r}
+```{r include=FALSE}
 library(rio)
 library(here) 
 library(recipes)
 library(stringr) #for working with data and time string
 library(scales)
+library(psych) #for describe function that provides min, max, mean, sd, skew, and kurtosis
 ```
 
 ```{r}
@@ -111,7 +112,7 @@ data2$hour <- as.numeric(data2$hour)
 
 ```
 
-```{r}
+```{r include=FALSE}
 data2 <- data2 %>% 
   mutate(day = case_when(
                 
@@ -129,7 +130,7 @@ data2 <- data2 %>%
 data2$day <- as.numeric(data2$day)
 ```
 
-```{r}
+```{r include=FALSE}
 perc_day <- table(data2$day)
 
 mon <- perc_day[1]
@@ -144,7 +145,7 @@ total <- mon + tues + weds + thurs + fri + sat + sun
 ```
 
 Frequency of posts on days of the week: 
-```{r}
+```{r echo=FALSE}
 p_mon <- mon/total
 p_mon <- label_percent()(p_mon)
 
@@ -172,14 +173,15 @@ names(percents) <- c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Sa
 
 percents
 ```
-```{r}
-library(psych)
+
+Descriptives for Date variable 
+```{r echo=FALSE}
 
 describe(data2$date)
 perc_data <- table(data2$date)
 ```
 
-```{r}
+```{r message=TRUE, warning=FALSE}
 data3 <- data2
 #changing variables from numberes to characters so that the frequencies can be calculated based on each day as a separate entity. 
 
@@ -187,13 +189,15 @@ data3$date <- as.character(data3$date)
 data3$hour <- as.character(data3$hour)
 
 library(gtsummary)
+library(flextable)
 
-data3 |>
+table1 <- data3 |>
 select(day, month, date, hour ) |>
   tbl_summary()
-  
-```
 
+table1 |>
+  as_flex_table() 
+```
 
 **Task 1.3** Recode the outcome variable (`sentiment`) into a binary variable such that Positive is equal to 1 and Negative is equal to 0. Calculate and print the frequencies for tweets with positive and negative sentiments.
 
@@ -229,17 +233,32 @@ LFmodel$get_max_seq_length()
 LFmodel$get_sentence_embedding_dimension()
 ```
 
-```{r}
+```{r,echo=TRUE,eval=FALSE}
 
 read.embeddings <- LFmodel$encode(data2$tweet,
                                   show_progress_bar = TRUE)
 
 ```
 
+
+```{r,echo=TRUE,eval=FALSE}
+
+read.embeddings <- LFmodel$encode(data2$tweet,
+                                  show_progress_bar = TRUE)
+
+```
+
+
+```{r include=FALSE}
+
+load('~/Documents/Everything/PhD_harddrive/EDLD_654/assignment_1/assign1_task1.RData')
+
+```
+
 **Task 1.5** Remove the two columns `time` and `tweet` from the dataset as you do not need them anymore.
 
 ```{r}
-data2 <- data2 |>
+ data2 <- data2 |>
   select(-time, -tweet, -wkday, -hms)
 
 ```
@@ -282,10 +301,6 @@ outcome <- c('sentiment')
   #   
   # }
 
-  typeof(data2$date)
-  typeof(data2$hour)
-  typeof(data2$day)
-
 ```
 
 ### put the two data frames together
@@ -297,7 +312,6 @@ data4 <- clean_names(data4)
 
 data4 <- data4 |>
   rename( "ID" = "id")
-
 ```
 
 
@@ -320,37 +334,25 @@ Your recipe should have the following specifications:
 Print the blueprint.
 
 ```{r}
-# blueprint <- recipe(x  = data4,
-#                     vars  = c(categorical,cyclic,embed_number ,outcome,id),
-  #                   roles = c(rep('predictor',772),'ID', 'outcome')) |>
-  # 
-  # step_dummy(all_of(categorical),one_hot=TRUE) |>
-  # 
-  # step_normalize(x1:x768) |>
-  # 
-  # step_harmonic((day), cycle_size = 7) |>
-  # step_harmonic((hours), cycle_size = 24) |>
-  # step_harmonic((date), cycle_size = 31)
-  
   
 blueprint <- recipe(x  = data4,
                     vars  = c(id, outcome, categorical,cyclic,embed_number ),
-                    roles = c('ID', 'outcome', rep('predictor',772))) |>
+                    roles = c('ID', 'outcome',
+                              rep('predictor',772))) |>
+step_harmonic('date', cycle_size = 1, frequency = 1/31) |>
 
-  step_dummy(all_of(categorical),one_hot=TRUE) |>
+step_harmonic('hour', cycle_size = 1, frequency = 1/24) |>
+
+step_harmonic('day', cycle_size = 1, frequency = 1/7) |>
+
+step_dummy(all_of(categorical),one_hot=TRUE) |>
   
-  step_normalize(x1:x768) 
+step_normalize(x1:x768) 
   
-   
- # step_harmonic((date), cycle_size = 31) |>
- # step_harmonic((hour), cycle_size = 23) |>
-# step_harmonic((day), cycle_size = 7)
-  
+
 
 blueprint
 ```
-
-
 **Task 1.7** Finally, apply this recipe to the whole dataset and obtain the final version of the dataset with transformed variables. The final dataset should have 1500 rows and 778 columns as the following:
 
 -   768 columns for tweet embeddings,
@@ -374,7 +376,8 @@ baked_data
 **Task 1.8** Export the final dataset (1500 x 778) as a .csv file.
 
 ```{r}
-write.csv(baked_data, "~/Documents/Everything/PhD_harddrive/EDLD_654/final_dataset")
+write.csv(baked_data,"~/Documents/Everything/PhD_harddrive/EDLD_654/assignment_1/final_dataset1")
+
 ```
 
 
@@ -487,6 +490,11 @@ ff_glimpse(dat)
 **Task 2.3** Most of the variables in this dataset are categorical, and particularly a binary variable with a Yes and No response. Check the frequency of unique values for all categorical variables. If there is any inconsistency (e.g., Yes is coded as both 'y' and 'Y') for any of these variables in terms of how values are coded, fix them. Also, check the distribution of numeric variables and make sure there is no anomaly.
 
 ```{r}
+dat[dat == ''] <- NA
+```
+
+
+```{r}
 table(dat$school)
 table(dat$sex)
 describe(dat$age)
@@ -574,6 +582,7 @@ Suppose that we categorize the variables in this datasets as the following:
 -   `school`,`sex`,`address`,`famsize`,`Pstatus`,`Mjob`,`Fjob`,`reason`,`guardian`,`schoolsup`,`famsup`, `paid`,`activities`,`nursery`,`higher`,`internet`,`romantic` are all categorical predictors.
 
 ```{r}
+
 id <- c('student_id')
 outcome <- c('G3')
 numeric <- c('Medu','Fedu','traveltime','studytime','failures','famrel','freetime','goout','Dalc','Walc','health','age','absences')
@@ -583,6 +592,29 @@ categorical <- c('school','sex','address','famsize','Pstatus','Mjob','Fjob','rea
 
 ```
 
+```{r}
+for(i in categorical){
+    
+    dat[,i] <- as.factor(dat[,i])
+    
+  }
+  
+  #Repeat with numeric just to be sure that they are all numbers
+
+   for(i in numeric){
+  
+    dat[,i] <- as.numeric(dat[,i])
+  
+   }
+
+```
+
+```{r}
+str(dat)
+```
+
+
+
 
 Your recipe should have the following specifications in the order below:
 
@@ -590,18 +622,18 @@ Your recipe should have the following specifications in the order below:
 blueprint <- recipe(x  = dat,
                     vars  = c(id, outcome, categorical, numeric ),
                     roles = c('id', 'outcome', rep('predictor',30))) |>
-
-step_indicate_na(all_of(categorical),all_of(numeric) |>
-# step_zv(all_numeric()) |>
-# step_impute_mean(all_of(numeric)) |>
-# step_impute_mode(all_of(categorical)) |>
-# step_poly(all_of(numeric),degree=3) |>
-#   step_normalize(paste0(numeric,'_poly_1'),
-#                  paste0(numeric,'_poly_2')) |>
+step_indicate_na(all_of(categorical),all_of(numeric)) |> 
+step_zv(all_predictors()) |>
+step_impute_mean(all_of(numeric)) |>
+step_impute_mode(all_of(categorical)) |>
+step_poly(all_of(numeric),degree=3) |>
+step_normalize(paste0(numeric,'_poly_1'),
+               paste0(numeric,'_poly_2'),
+               paste0(numeric,'_poly_3')) |>
   
   # One-hot encoding for all categorical variables
   
-  step_dummy(all_of(categorical),one_hot=TRUE))
+  step_dummy(all_of(categorical),one_hot=TRUE)
 
 ```
 
@@ -622,15 +654,15 @@ blueprint
 
 **Task 2.5** Finally, apply this recipe to the whole dataset and obtain the final version of the dataset with transformed variables. The final dataset should have 649 rows and 114 columns as the following:
 
-
 ```{r eval=FALSE, include=FALSE}
 prepare <- prep(blueprint, 
                 training = dat)
 prepare
+
 ```
 
 ```{r eval=FALSE, include=FALSE}
-baked_data <- bake(prepare, new_data = data4)
+baked_data <- bake(prepare, new_data = dat)
 
 baked_data
 ```
@@ -659,3 +691,7 @@ baked_data
 -   two columns for dummy variables representing `romantic`
 
 **Task 2.7** Export the final dataset (649 x 114) as a .csv file.
+```{r}
+write.csv(baked_data, "~/Documents/Everything/PhD_harddrive/EDLD_654/assignment_1/final_dataset2")
+```
+
